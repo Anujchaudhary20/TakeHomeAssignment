@@ -63,17 +63,11 @@ public class JournalEntryService {
 
     @Transactional(readOnly = true)
     public Page<JournalEntryResponse> listJournalEntries(LocalDate from, LocalDate to, Pageable pageable) {
-        Page<JournalEntry> page;
-        if (from != null && to != null) {
-            page = journalEntryRepository.findByEntryDateBetween(from, to, pageable);
-        } else if (from != null) {
-            page = journalEntryRepository.findByEntryDateGreaterThanEqual(from, pageable);
-        } else if (to != null) {
-            page = journalEntryRepository.findByEntryDateLessThanEqual(to, pageable);
-        } else {
-            page = journalEntryRepository.findAll(pageable);
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new IllegalArgumentException("'from' date cannot be after 'to' date");
         }
 
+        Page<JournalEntry> page = journalEntryRepository.findByDateRange(from, to, pageable);
         return page.map(JournalEntryResponse::from);
     }
 

@@ -17,6 +17,17 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, UUID
 
     Optional<JournalEntry> findByIdAndTenantId(UUID id, String tenantId);
 
+    @Query("""
+        SELECT e FROM JournalEntry e
+        WHERE (:from IS NULL OR e.entryDate >= :from)
+          AND (:to IS NULL OR e.entryDate <= :to)
+    """)
+    Page<JournalEntry> findByDateRange(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            Pageable pageable
+    );
+
     Page<JournalEntry> findByEntryDateBetween(LocalDate from, LocalDate to, Pageable pageable);
 
     Page<JournalEntry> findByEntryDateGreaterThanEqual(LocalDate from, Pageable pageable);
