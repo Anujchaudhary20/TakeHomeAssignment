@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ledger-postgres
+    environment:
+      POSTGRES_DB: ledger_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ledger_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  ledger-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ledger-service
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ledger_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      LEDGER_WEBHOOK_SECRET: super-secret-shared-key-2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
