@@ -8,6 +8,7 @@ import com.ledger.idempotency.model.IdempotencyRecord;
 import com.ledger.idempotency.model.IdempotencyStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -42,23 +43,23 @@ public class IdempotencyService {
         String normalizedKey = idempotencyKey.trim();
         String requestHash = computeHash(requestPayload);
 
-        IdempotencyReservationResult reservation = reservationService.tryReserve(tenantId, normalizedKey, requestHash);
-
-        if (reservation.acquired()) {
-            IdempotencyRecord record = reservation.record();
-            try {
-                ResponseEntity<T> response = businessLogic.get();
-                String serializedResponse = objectMapper.writeValueAsString(response.getBody());
-                reservationService.markCompleted(record.getId(), response.getStatusCode().value(), serializedResponse);
-                return response;
-            } catch (Exception ex) {
-                reservationService.markFailedOrRemove(record.getId());
-                throw (ex instanceof RuntimeException re) ? re : new RuntimeException(ex);
-            }
+        IdempotencyRecord record;
+        try {
+            record = reservationService.reserve(tenantId, normalizedKey, requestHash);
+        } catch (DataIntegrityViolationException ex) {
+            log.debug("Concurrent insertion race detected for tenant={} idempotencyKey={}", tenantId, normalizedKey);
+            return handleExistingRecord(tenantId, normalizedKey, requestHash, responseType);
         }
 
-        // Another request with this key was already initiated or completed
-        return handleExistingRecord(tenantId, normalizedKey, requestHash, responseType);
+        try {
+            ResponseEntity<T> response = businessLogic.get();
+            String serializedResponse = objectMapper.writeValueAsString(response.getBody());
+            reservationService.markCompleted(record.getId(), response.getStatusCode().value(), serializedResponse);
+            return response;
+        } catch (Exception ex) {
+            reservationService.markFailedOrRemove(record.getId());
+            throw (ex instanceof RuntimeException re) ? re : new RuntimeException(ex);
+        }
     }
 
     private <T> ResponseEntity<T> handleExistingRecord(
@@ -67,22 +68,24 @@ public class IdempotencyService {
             String requestHash,
             Class<T> responseType
     ) {
-        IdempotencyRecord existing = reservationService.findRecord(tenantId, idempotencyKey)
-                .orElseThrow(() -> new ConflictException("Concurrent request conflict on idempotency key: " + idempotencyKey));
-
-        if (!existing.getRequestHash().equals(requestHash)) {
-            throw new IdempotencyPayloadMismatchException(
-                    "Idempotency key '" + idempotencyKey + "' was already used with a different request payload."
-            );
-        }
-
-        if (existing.getStatus() == IdempotencyStatus.COMPLETED) {
-            return buildCachedResponse(existing, responseType);
-        }
-
-        // Wait for the concurrent in-flight request to finish
+        // Wait / poll for the in-flight request to finish or read immediately if already completed
         int waited = 0;
-        while (waited < MAX_WAIT_MILLIS) {
+        while (waited <= MAX_WAIT_MILLIS) {
+            Optional<IdempotencyRecord> recordOpt = reservationService.findRecord(tenantId, idempotencyKey);
+            if (recordOpt.isPresent()) {
+                IdempotencyRecord existing = recordOpt.get();
+
+                if (!existing.getRequestHash().equals(requestHash)) {
+                    throw new IdempotencyPayloadMismatchException(
+                            "Idempotency key '" + idempotencyKey + "' was already used with a different request payload."
+                    );
+                }
+
+                if (existing.getStatus() == IdempotencyStatus.COMPLETED) {
+                    return buildCachedResponse(existing, responseType);
+                }
+            }
+
             try {
                 Thread.sleep(POLL_INTERVAL_MILLIS);
             } catch (InterruptedException e) {
@@ -90,11 +93,6 @@ public class IdempotencyService {
                 throw new ConflictException("Interrupted while waiting for in-flight idempotent request.");
             }
             waited += POLL_INTERVAL_MILLIS;
-
-            Optional<IdempotencyRecord> updated = reservationService.findRecord(tenantId, idempotencyKey);
-            if (updated.isPresent() && updated.get().getStatus() == IdempotencyStatus.COMPLETED) {
-                return buildCachedResponse(updated.get(), responseType);
-            }
         }
 
         throw new ConflictException("A request with Idempotency-Key '" + idempotencyKey + "' is still processing. Please retry.");

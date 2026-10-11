@@ -3,7 +3,6 @@ package com.ledger.webhook.service;
 import com.ledger.ledger.model.Direction;
 import com.ledger.ledger.model.JournalEntry;
 import com.ledger.ledger.repository.JournalEntryRepository;
-import com.ledger.tenant.TenantContext;
 import com.ledger.webhook.dto.PaymentWebhookRequest;
 import com.ledger.webhook.dto.PaymentWebhookResponse;
 import com.ledger.webhook.model.WebhookInboxEvent;
@@ -64,25 +63,22 @@ public class PaymentWebhookService {
         ));
 
         try {
-            // Step 3: Create Journal Entry in tenant context
+            // Step 3: Create Journal Entry
             LocalDate entryDate = request.settledAt().atZone(ZoneOffset.UTC).toLocalDate();
+            JournalEntry journalEntry = new JournalEntry(
+                    UUID.randomUUID(),
+                    request.tenantId(),
+                    entryDate,
+                    "Settled payment " + request.eventId(),
+                    Instant.now()
+            );
 
-            JournalEntry entry = TenantContext.runWithTenant(request.tenantId(), () -> {
-                JournalEntry journalEntry = new JournalEntry(
-                        UUID.randomUUID(),
-                        request.tenantId(),
-                        entryDate,
-                        "Settled payment " + request.eventId(),
-                        Instant.now()
-                );
+            // Debit Bank, Credit Sales Revenue
+            journalEntry.addLine(defaultBankAccount, request.amount(), Direction.DEBIT);
+            journalEntry.addLine(defaultRevenueAccount, request.amount(), Direction.CREDIT);
 
-                // Debit Bank, Credit Sales Revenue
-                journalEntry.addLine(defaultBankAccount, request.amount(), Direction.DEBIT);
-                journalEntry.addLine(defaultRevenueAccount, request.amount(), Direction.CREDIT);
-
-                journalEntry.validateBalancing();
-                return journalEntryRepository.save(journalEntry);
-            });
+            journalEntry.validateBalancing();
+            JournalEntry entry = journalEntryRepository.save(journalEntry);
 
             // Step 4: Link Journal Entry and mark PROCESSED
             inboxEvent.setJournalEntry(entry);

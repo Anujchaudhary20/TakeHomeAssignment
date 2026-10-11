@@ -1,5 +1,6 @@
 package com.ledger.webhook.controller;
 
+import com.ledger.tenant.TenantContext;
 import com.ledger.webhook.dto.PaymentWebhookRequest;
 import com.ledger.webhook.dto.PaymentWebhookResponse;
 import com.ledger.webhook.service.PaymentWebhookService;
@@ -22,8 +23,13 @@ public class PaymentWebhookController {
     public ResponseEntity<PaymentWebhookResponse> receivePaymentWebhook(
             @Valid @RequestBody PaymentWebhookRequest request
     ) {
-        // Return 200 OK strictly after synchronous database commit
-        PaymentWebhookResponse response = paymentWebhookService.processPayment(request);
-        return ResponseEntity.ok(response);
+        // Populate tenant context prior to database transaction initialization
+        try {
+            TenantContext.setTenantId(request.tenantId());
+            PaymentWebhookResponse response = paymentWebhookService.processPayment(request);
+            return ResponseEntity.ok(response);
+        } finally {
+            TenantContext.clear();
+        }
     }
 }

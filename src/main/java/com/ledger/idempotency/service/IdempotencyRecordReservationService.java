@@ -5,7 +5,6 @@ import com.ledger.idempotency.model.IdempotencyStatus;
 import com.ledger.idempotency.repository.IdempotencyRecordRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,21 +21,15 @@ public class IdempotencyRecordReservationService {
     private final IdempotencyRecordRepository repository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public IdempotencyReservationResult tryReserve(String tenantId, String key, String requestHash) {
-        try {
-            IdempotencyRecord record = new IdempotencyRecord(
-                    UUID.randomUUID(),
-                    tenantId,
-                    key,
-                    requestHash,
-                    IdempotencyStatus.IN_PROGRESS
-            );
-            IdempotencyRecord saved = repository.saveAndFlush(record);
-            return IdempotencyReservationResult.acquired(saved);
-        } catch (DataIntegrityViolationException ex) {
-            log.debug("Concurrent insertion detected for tenant={} idempotencyKey={}", tenantId, key);
-            return IdempotencyReservationResult.duplicate();
-        }
+    public IdempotencyRecord reserve(String tenantId, String key, String requestHash) {
+        IdempotencyRecord record = new IdempotencyRecord(
+                UUID.randomUUID(),
+                tenantId,
+                key,
+                requestHash,
+                IdempotencyStatus.IN_PROGRESS
+        );
+        return repository.saveAndFlush(record);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
