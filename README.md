@@ -18,12 +18,12 @@ docker compose up --build
 ```
 The service will be live on `http://localhost:8080`.
 
-### Option B: Running Locally with Maven Wrapper
+### Option B: Running Locally with Maven Wrapper (Zero Configuration)
 If running locally without Docker:
 ```bash
 ./mvnw clean spring-boot:run
 ```
-*(By default, this connects to local PostgreSQL on port 5432 or can be configured via environment variables `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD`)*.
+*(Runs out-of-the-box in 3 seconds with zero external database setup required, using an in-memory PostgreSQL-compatible database with automatic Flyway migrations. If you have an external PostgreSQL instance running, simply provide `SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/ledger_db ./mvnw spring-boot:run`)*.
 
 ### How to Run the Tests
 To execute the automated integration and unit test suite:
