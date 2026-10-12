@@ -60,6 +60,7 @@ public class TenantFilter extends OncePerRequestFilter {
     private boolean isTenantOptionalPath(String path) {
         return path.startsWith("/api/v1/webhooks")
                 || path.startsWith("/actuator")
+                || path.startsWith("/h2-console")
                 || path.equals("/error");
     }
 }
