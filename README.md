@@ -32,7 +32,12 @@ To execute the automated integration and unit test suite:
 ```
 All tests run against an in-memory database in PostgreSQL compatibility mode with Flyway schema migration validation enabled (`ddl-auto: validate`).
 
+### Postman Collection
+A complete Postman Collection file is provided directly in the root directory: [`postman_collection.json`](postman_collection.json).
+Import this file into Postman to run and test all endpoints, including automated HMAC-SHA256 signature generation, idempotency checks, multi-tenant isolation, and reversals.
+
 ---
+
 
 ## 2. Architectural Decisions & Rationale
 
