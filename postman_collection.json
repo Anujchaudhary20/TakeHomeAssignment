@@ -1,0 +1,745 @@
+{
+  "info": {
+    "_postman_id": "c7f28a9b-4e12-4f81-9b7e-89a1c2d3e4f5",
+    "name": "Accounting Ledger Service API",
+    "description": "Comprehensive Postman Collection covering all endpoints of the Multi-Tenant Accounting Ledger Service: Journal Entries, Account Balances, Idempotency, Multi-Tenant Isolation, and HMAC-signed Payment Webhooks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "acme-corp",
+      "type": "string"
+    },
+    {
+      "key": "webhookSecret",
+      "value": "super-secret-shared-key-2026",
+      "type": "string"
+    },
+    {
+      "key": "journalEntryId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Journal Entries",
+      "item": [
+        {
+          "name": "Create Balanced Journal Entry (Success 201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Debits equal Credits\", function () {",
+                  "    pm.expect(jsonData.totalDebits).to.eql(jsonData.totalCredits);",
+                  "});",
+                  "",
+                  "if (jsonData.id) {",
+                  "    pm.collectionVariables.set(\"journalEntryId\", jsonData.id);",
+                  "    console.log(\"Saved journalEntryId:\", jsonData.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Invoice payment received from Acme Client\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 5000.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 5000.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries"]
+            },
+            "description": "Creates a balanced double-entry journal record. Automatically extracts and stores the returned entry ID into {{journalEntryId}} for subsequent requests."
+          }
+        },
+        {
+          "name": "Create Unbalanced Journal Entry (Rejected 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Error message indicates unbalanced entry\", function () {",
+                  "    pm.expect(jsonData.error).to.include(\"Journal entry is unbalanced\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Intentional unbalanced test entry\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 5000.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 4000.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries"]
+            },
+            "description": "Tests double-entry domain validation invariant: debits != credits returns 400 Bad Request."
+          }
+        },
+        {
+          "name": "List Journal Entries (Filtered & Paginated)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries?from=2026-01-01&to=2026-12-31&page=0&size=20&sort=entryDate,desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries"],
+              "query": [
+                { "key": "from", "value": "2026-01-01" },
+                { "key": "to", "value": "2026-12-31" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "entryDate,desc" }
+              ]
+            },
+            "description": "Lists journal entries for the current tenant with optional date filtering and pagination."
+          }
+        },
+        {
+          "name": "Get Journal Entry by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Entry ID matches requested ID\", function () {",
+                  "    pm.expect(jsonData.id).to.eql(pm.collectionVariables.get(\"journalEntryId\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}"]
+            },
+            "description": "Fetches a specific journal entry by UUID within the active tenant."
+          }
+        },
+        {
+          "name": "Reverse Journal Entry (Success 201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Reversal links to original entry\", function () {",
+                  "    pm.expect(jsonData.reversalOfEntryId).to.eql(pm.collectionVariables.get(\"journalEntryId\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}/reverse",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}", "reverse"]
+            },
+            "description": "Creates an offsetting reversal entry swapping debits and credits, bringing the account balance back to zero."
+          }
+        },
+        {
+          "name": "Reverse Journal Entry Second Time (Rejected 409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 409 Conflict\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Error indicates already reversed\", function () {",
+                  "    pm.expect(jsonData.error).to.include(\"has already been reversed\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}/reverse",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}", "reverse"]
+            },
+            "description": "Enforces Section 3.4 Double-Reversal rule: an entry cannot be reversed more than once."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Accounts & Balances",
+      "item": [
+        {
+          "name": "Get Bank Account Balance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Response has accountCode and tenantId\", function () {",
+                  "    pm.expect(jsonData.accountCode).to.eql(\"1000-BANK\");",
+                  "    pm.expect(jsonData.tenantId).to.eql(pm.collectionVariables.get(\"tenantId\"));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/1000-BANK/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "1000-BANK", "balance"]
+            },
+            "description": "Calculates real-time net account balance (Debits - Credits) for the specified account code."
+          }
+        },
+        {
+          "name": "Get Account Balance asOf Date",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/1000-BANK/balance?asOf=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "1000-BANK", "balance"],
+              "query": [
+                { "key": "asOf", "value": "2026-12-31" }
+              ]
+            },
+            "description": "Calculates net balance as of a point in time."
+          }
+        },
+        {
+          "name": "Get Sales Revenue Balance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/accounts/4000-SALES/balance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "accounts", "4000-SALES", "balance"]
+            },
+            "description": "Calculates net balance for sales revenue account."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Payment Webhooks (HMAC-SHA256)",
+      "item": [
+        {
+          "name": "Receive Payment Webhook (Auto HMAC Signed)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Auto-compute raw body HMAC-SHA256 signature before sending",
+                  "const rawBody = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get(\"webhookSecret\") || \"super-secret-shared-key-2026\";",
+                  "const hash = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + hash });"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Status is PROCESSED\", function () {",
+                  "    pm.expect(jsonData.status).to.eql(\"PROCESSED\");",
+                  "});",
+                  "pm.test(\"Journal entry ID was assigned\", function () {",
+                  "    pm.expect(jsonData.journalEntryId).to.not.be.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"evt_{{$timestamp}}\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"amount\": 2500.00,\n  \"currency\": \"INR\",\n  \"settledAt\": \"2026-10-12T10:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "webhooks", "payments"]
+            },
+            "description": "Pre-request script dynamically computes HMAC-SHA256 signature over raw bytes and injects X-Signature header. Persists webhook to inbox and posts double-entry journal entry."
+          }
+        },
+        {
+          "name": "Duplicate Webhook Delivery (Deduplicated 200)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const rawBody = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get(\"webhookSecret\") || \"super-secret-shared-key-2026\";",
+                  "const hash = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + hash });"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Duplicate delivery recognized as ALREADY_PROCESSED or PROCESSED\", function () {",
+                  "    pm.expect([\"PROCESSED\", \"ALREADY_PROCESSED\"]).to.include(jsonData.status);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"evt_fixed_postman_dedup_001\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"amount\": 1500.00,\n  \"currency\": \"INR\",\n  \"settledAt\": \"2026-10-12T10:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "webhooks", "payments"]
+            },
+            "description": "Sends fixed event ID. Running this request twice will show first run returns PROCESSED and second run returns ALREADY_PROCESSED with zero duplicate ledger rows."
+          }
+        },
+        {
+          "name": "Webhook with Invalid HMAC Signature (Rejected 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Error specifies invalid HMAC\", function () {",
+                  "    pm.expect(jsonData.error).to.include(\"Invalid HMAC signature\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Signature",
+                "value": "sha256=0000000000000000000000000000000000000000000000000000000000000000",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"evt_tampered_test\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"amount\": 99999.00,\n  \"currency\": \"INR\",\n  \"settledAt\": \"2026-10-12T10:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "webhooks", "payments"]
+            },
+            "description": "Demonstrates security filter rejection: tampered or forged signatures return 401 Unauthorized and write nothing."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Multi-Tenant Isolation & Security",
+      "item": [
+        {
+          "name": "Cross-Tenant Access Attempt (Safe 404 Not Found)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Error does not leak cross-tenant existence\", function () {",
+                  "    pm.expect(jsonData.error).to.include(\"not found\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "globex-corp",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}"]
+            },
+            "description": "Attempts to fetch acme-corp's journalEntryId using globex-corp header. Hibernate native @TenantId ensures 404 Not Found is returned without leaking ID existence."
+          }
+        },
+        {
+          "name": "Missing Required X-Tenant-Id Header (Rejected 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries"]
+            },
+            "description": "Demonstrates TenantFilter enforcing tenant context for tenant-scoped endpoints."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Idempotency Edge Cases",
+      "item": [
+        {
+          "name": "Step 1 - First Request with Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created or 200 OK\", function () {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "mismatch-test-key-postman-01",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Original payload for key\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 300.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 300.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries"]
+            },
+            "description": "Registers key with 300.00 payload."
+          }
+        },
+        {
+          "name": "Step 2 - Reuse Key with Different Payload (Rejected 422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 422 Unprocessable Entity\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.test(\"Error indicates key reused with different payload\", function () {",
+                  "    pm.expect(jsonData.error).to.include(\"already used with a different request payload\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{tenantId}}",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "mismatch-test-key-postman-01",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Modified payload under SAME key\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 999.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 999.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/journal-entries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "journal-entries"]
+            },
+            "description": "Reusing an idempotency key with different payload is rejected with 422 Unprocessable Entity."
+          }
+        }
+      ]
+    }
+  ]
+}
