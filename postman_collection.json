@@ -1,6 +1,6 @@
 {
   "info": {
-    "_postman_id": "c7f28a9b-4e12-4f81-9b7e-89a1c2d3e4f5",
+    "_postman_id": "e1f2a3b4-5678-4901-abcd-ef0123456789",
     "name": "Accounting Ledger Service API",
     "description": "Comprehensive Postman Collection covering all endpoints of the Multi-Tenant Accounting Ledger Service: Journal Entries, Account Balances, Idempotency, Multi-Tenant Isolation, and HMAC-signed Payment Webhooks.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -23,7 +23,12 @@
     },
     {
       "key": "journalEntryId",
-      "value": "",
+      "value": "11111111-1111-1111-1111-111111111111",
+      "type": "string"
+    },
+    {
+      "key": "mismatchKey",
+      "value": "mismatch-test-key-01",
       "type": "string"
     }
   ],
@@ -47,7 +52,7 @@
                   "    pm.expect(jsonData.totalDebits).to.eql(jsonData.totalCredits);",
                   "});",
                   "",
-                  "if (jsonData.id) {",
+                  "if (jsonData && jsonData.id) {",
                   "    pm.collectionVariables.set(\"journalEntryId\", jsonData.id);",
                   "    console.log(\"Saved journalEntryId:\", jsonData.id);",
                   "}"
@@ -80,9 +85,17 @@
               "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Invoice payment received from Acme Client\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 5000.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 5000.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries"]
+              "raw": "http://localhost:8080/api/v1/journal-entries",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries"
+              ]
             },
             "description": "Creates a balanced double-entry journal record. Automatically extracts and stores the returned entry ID into {{journalEntryId}} for subsequent requests."
           }
@@ -131,9 +144,17 @@
               "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Intentional unbalanced test entry\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 5000.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 4000.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries"]
+              "raw": "http://localhost:8080/api/v1/journal-entries",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries"
+              ]
             },
             "description": "Tests double-entry domain validation invariant: debits != credits returns 400 Bad Request."
           }
@@ -163,15 +184,38 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries?from=2026-01-01&to=2026-12-31&page=0&size=20&sort=entryDate,desc",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries"],
+              "raw": "http://localhost:8080/api/v1/journal-entries?from=2026-01-01&to=2026-12-31&page=0&size=20&sort=entryDate,desc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries"
+              ],
               "query": [
-                { "key": "from", "value": "2026-01-01" },
-                { "key": "to", "value": "2026-12-31" },
-                { "key": "page", "value": "0" },
-                { "key": "size", "value": "20" },
-                { "key": "sort", "value": "entryDate,desc" }
+                {
+                  "key": "from",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31"
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "sort",
+                  "value": "entryDate,desc"
+                }
               ]
             },
             "description": "Lists journal entries for the current tenant with optional date filtering and pagination."
@@ -207,9 +251,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}"]
+              "raw": "http://localhost:8080/api/v1/journal-entries/{{journalEntryId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries",
+                "{{journalEntryId}}"
+              ]
             },
             "description": "Fetches a specific journal entry by UUID within the active tenant."
           }
@@ -249,9 +302,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}/reverse",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}", "reverse"]
+              "raw": "http://localhost:8080/api/v1/journal-entries/{{journalEntryId}}/reverse",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries",
+                "{{journalEntryId}}",
+                "reverse"
+              ]
             },
             "description": "Creates an offsetting reversal entry swapping debits and credits, bringing the account balance back to zero."
           }
@@ -291,9 +354,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}/reverse",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}", "reverse"]
+              "raw": "http://localhost:8080/api/v1/journal-entries/{{journalEntryId}}/reverse",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries",
+                "{{journalEntryId}}",
+                "reverse"
+              ]
             },
             "description": "Enforces Section 3.4 Double-Reversal rule: an entry cannot be reversed more than once."
           }
@@ -334,9 +407,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/accounts/1000-BANK/balance",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "1000-BANK", "balance"]
+              "raw": "http://localhost:8080/api/v1/accounts/1000-BANK/balance",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "1000-BANK",
+                "balance"
+              ]
             },
             "description": "Calculates real-time net account balance (Debits - Credits) for the specified account code."
           }
@@ -366,11 +449,24 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/accounts/1000-BANK/balance?asOf=2026-12-31",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "1000-BANK", "balance"],
+              "raw": "http://localhost:8080/api/v1/accounts/1000-BANK/balance?asOf=2026-12-31",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "1000-BANK",
+                "balance"
+              ],
               "query": [
-                { "key": "asOf", "value": "2026-12-31" }
+                {
+                  "key": "asOf",
+                  "value": "2026-12-31"
+                }
               ]
             },
             "description": "Calculates net balance as of a point in time."
@@ -401,9 +497,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/accounts/4000-SALES/balance",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "accounts", "4000-SALES", "balance"]
+              "raw": "http://localhost:8080/api/v1/accounts/4000-SALES/balance",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "4000-SALES",
+                "balance"
+              ]
             },
             "description": "Calculates net balance for sales revenue account."
           }
@@ -420,11 +526,15 @@
               "listen": "prerequest",
               "script": {
                 "exec": [
-                  "// Auto-compute raw body HMAC-SHA256 signature before sending",
-                  "const rawBody = pm.request.body.raw;",
+                  "const raw = pm.variables.replaceIn(pm.request.body.raw);",
+                  "pm.request.body.raw = raw;",
                   "const secret = pm.collectionVariables.get(\"webhookSecret\") || \"super-secret-shared-key-2026\";",
-                  "const hash = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
-                  "pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + hash });"
+                  "const hash = CryptoJS.HmacSHA256(raw, secret).toString(CryptoJS.enc.Hex);",
+                  "if (pm.request.headers.upsert) {",
+                  "    pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + hash });",
+                  "} else {",
+                  "    pm.request.headers.add({ key: \"X-Signature\", value: \"sha256=\" + hash });",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
@@ -463,9 +573,18 @@
               "raw": "{\n  \"eventId\": \"evt_{{$timestamp}}\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"amount\": 2500.00,\n  \"currency\": \"INR\",\n  \"settledAt\": \"2026-10-12T10:00:00Z\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/webhooks/payments",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "webhooks", "payments"]
+              "raw": "http://localhost:8080/api/v1/webhooks/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "payments"
+              ]
             },
             "description": "Pre-request script dynamically computes HMAC-SHA256 signature over raw bytes and injects X-Signature header. Persists webhook to inbox and posts double-entry journal entry."
           }
@@ -477,10 +596,15 @@
               "listen": "prerequest",
               "script": {
                 "exec": [
-                  "const rawBody = pm.request.body.raw;",
+                  "const raw = pm.variables.replaceIn(pm.request.body.raw);",
+                  "pm.request.body.raw = raw;",
                   "const secret = pm.collectionVariables.get(\"webhookSecret\") || \"super-secret-shared-key-2026\";",
-                  "const hash = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
-                  "pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + hash });"
+                  "const hash = CryptoJS.HmacSHA256(raw, secret).toString(CryptoJS.enc.Hex);",
+                  "if (pm.request.headers.upsert) {",
+                  "    pm.request.headers.upsert({ key: \"X-Signature\", value: \"sha256=\" + hash });",
+                  "} else {",
+                  "    pm.request.headers.add({ key: \"X-Signature\", value: \"sha256=\" + hash });",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
@@ -516,9 +640,18 @@
               "raw": "{\n  \"eventId\": \"evt_fixed_postman_dedup_001\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"amount\": 1500.00,\n  \"currency\": \"INR\",\n  \"settledAt\": \"2026-10-12T10:00:00Z\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/webhooks/payments",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "webhooks", "payments"]
+              "raw": "http://localhost:8080/api/v1/webhooks/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "payments"
+              ]
             },
             "description": "Sends fixed event ID. Running this request twice will show first run returns PROCESSED and second run returns ALREADY_PROCESSED with zero duplicate ledger rows."
           }
@@ -562,9 +695,18 @@
               "raw": "{\n  \"eventId\": \"evt_tampered_test\",\n  \"tenantId\": \"{{tenantId}}\",\n  \"amount\": 99999.00,\n  \"currency\": \"INR\",\n  \"settledAt\": \"2026-10-12T10:00:00Z\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/webhooks/payments",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "webhooks", "payments"]
+              "raw": "http://localhost:8080/api/v1/webhooks/payments",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "payments"
+              ]
             },
             "description": "Demonstrates security filter rejection: tampered or forged signatures return 401 Unauthorized and write nothing."
           }
@@ -604,9 +746,18 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries/{{journalEntryId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries", "{{journalEntryId}}"]
+              "raw": "http://localhost:8080/api/v1/journal-entries/{{journalEntryId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries",
+                "{{journalEntryId}}"
+              ]
             },
             "description": "Attempts to fetch acme-corp's journalEntryId using globex-corp header. Hibernate native @TenantId ensures 404 Not Found is returned without leaking ID existence."
           }
@@ -630,9 +781,17 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries"]
+              "raw": "http://localhost:8080/api/v1/journal-entries",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries"
+              ]
             },
             "description": "Demonstrates TenantFilter enforcing tenant context for tenant-scoped endpoints."
           }
@@ -645,6 +804,16 @@
         {
           "name": "Step 1 - First Request with Key",
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const key = 'mismatch-key-' + Date.now();",
+                  "pm.collectionVariables.set('mismatchKey', key);"
+                ],
+                "type": "text/javascript"
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -667,7 +836,7 @@
               },
               {
                 "key": "Idempotency-Key",
-                "value": "mismatch-test-key-postman-01",
+                "value": "{{mismatchKey}}",
                 "type": "text"
               },
               {
@@ -681,9 +850,17 @@
               "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Original payload for key\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 300.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 300.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries"]
+              "raw": "http://localhost:8080/api/v1/journal-entries",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries"
+              ]
             },
             "description": "Registers key with 300.00 payload."
           }
@@ -718,7 +895,7 @@
               },
               {
                 "key": "Idempotency-Key",
-                "value": "mismatch-test-key-postman-01",
+                "value": "{{mismatchKey}}",
                 "type": "text"
               },
               {
@@ -732,9 +909,17 @@
               "raw": "{\n  \"entryDate\": \"2026-10-12\",\n  \"description\": \"Modified payload under SAME key\",\n  \"lines\": [\n    {\n      \"accountCode\": \"1000-BANK\",\n      \"amount\": 999.00,\n      \"direction\": \"DEBIT\"\n    },\n    {\n      \"accountCode\": \"4000-SALES\",\n      \"amount\": 999.00,\n      \"direction\": \"CREDIT\"\n    }\n  ]\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/journal-entries",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "v1", "journal-entries"]
+              "raw": "http://localhost:8080/api/v1/journal-entries",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "v1",
+                "journal-entries"
+              ]
             },
             "description": "Reusing an idempotency key with different payload is rejected with 422 Unprocessable Entity."
           }
