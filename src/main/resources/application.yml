@@ -7,7 +7,7 @@ spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:ledger_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
     username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
+    password: ${SPRING_DATASOURCE_PASSWORD:sa}
     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
   h2:
     console:
@@ -27,6 +27,8 @@ spring:
     baseline-on-migrate: true
 
 ledger:
+  seed-data:
+    enabled: true
   webhook:
     secret: ${LEDGER_WEBHOOK_SECRET:super-secret-shared-key-2026}
     default-bank-account: "1000-BANK"

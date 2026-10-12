@@ -23,6 +23,8 @@ spring:
     baseline-on-migrate: true
 
 ledger:
+  seed-data:
+    enabled: false
   webhook:
     secret: "test-webhook-secret-key-123"
     default-bank-account: "1000-BANK"
